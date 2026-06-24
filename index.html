@@ -299,11 +299,12 @@
         nextD++;
       }
 
-      document.getElementById('calendarGrid').innerHTML = cells.map(c => {
+      document.getElementById('calendarGrid').innerHTML = cells.map((c, idx) => {
         const key = dateKey(c.y, c.m, c.d);
         const holidayName = HOLIDAYS[key];
         const records = dayMap[key] || [];
         const isToday = key === todayKey;
+        const isWeekend = idx % 7 === 0 || idx % 7 === 6;
 
         const MAX_VISIBLE = 3;
         const visible = records.slice(0, MAX_VISIBLE);
@@ -319,7 +320,7 @@
           : '';
 
         return `
-          <div class="day-cell ${holidayName ? 'holiday' : ''} ${c.outside ? 'outside' : ''} ${isToday ? 'is-today' : ''}" data-key="${key}">
+          <div class="day-cell ${(holidayName || isWeekend) ? 'holiday' : ''} ${c.outside ? 'outside' : ''} ${isToday ? 'is-today' : ''}" data-key="${key}">
             <div class="day-num-row">
               <span class="day-num">${c.d}</span>
               ${holidayName ? `<span class="holiday-name">${holidayName}</span>` : ''}
