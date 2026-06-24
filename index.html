@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>請假日曆</title>
+<style>
+  :root {
+    --bg:        #f7f7f5;
+    --card:      #ffffff;
+    --border:    #e3e1dc;
+    --text:      #3a3a38;
+    --text-sub:  #908d86;
+    --holiday-bg:#e7e6e3;
+
+    /* 假別配色：低飽和、柔和、各色彩度/明度一致 */
+    --c-annual-bg:  #dbe6e1; --c-annual-tx:  #3f6b5c; /* 特休 */
+    --c-personal-bg:#e9ddcf; --c-personal-tx:#7a5c3e; /* 事假 */
+    --c-sick-bg:    #e8d5d5; --c-sick-tx:    #8a4a4a; /* 病假 */
+    --c-official-bg:#d7dfe8; --c-official-tx:#44607d; /* 公假 */
+    --c-funeral-bg: #ddd9e1; --c-funeral-tx: #5e5468; /* 喪假 */
+    --c-wedding-bg: #ece0c9; --c-wedding-tx: #8a6a30; /* 婚假 */
+    --c-other-bg:   #e2e2de; --c-other-tx:   #5c5c58; /* 其他 */
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px 16px 60px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; }
+
+  .header-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 18px; flex-wrap: wrap; gap: 10px;
+  }
+  .header-bar h1 { font-size: 19px; font-weight: 600; letter-spacing: 0.5px; }
+
+  .nav {
+    display: flex; align-items: center; gap: 12px;
+  }
+  .nav button {
+    width: 32px; height: 32px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    border-radius: 8px;
+    color: var(--text-sub);
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .nav button:hover { background: #f1f0ed; }
+  .nav .month-label { font-size: 15px; font-weight: 600; min-width: 96px; text-align: center; }
+  .nav .today-btn {
+    width: auto; padding: 0 12px; font-size: 12.5px; font-weight: 500; color: var(--text-sub);
+  }
+
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 8px 14px;
+    margin-bottom: 16px; padding: 12px 14px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-sub); }
+  .legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+  }
+  .weekday {
+    text-align: center; font-size: 12px; color: var(--text-sub);
+    padding-bottom: 6px; font-weight: 600;
+  }
+  .day-cell {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    min-height: 96px;
+    padding: 6px 6px 8px;
+    display: flex; flex-direction: column;
+    cursor: default;
+  }
+  .day-cell.holiday { background: var(--holiday-bg); }
+  .day-cell.outside { opacity: 0.38; }
+  .day-cell.is-today { border-color: #b9b6ad; box-shadow: inset 0 0 0 1px #b9b6ad; }
+
+  .day-num-row { display: flex; align-items: baseline; justify-content: space-between; }
+  .day-num { font-size: 13px; font-weight: 600; }
+  .holiday-name { font-size: 10px; color: var(--text-sub); max-width: 60px; text-align: right; line-height: 1.2; }
+
+  .chip-list { margin-top: 5px; display: flex; flex-direction: column; gap: 3px; overflow: hidden; }
+  .chip {
+    font-size: 11px; padding: 2px 6px; border-radius: 6px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    cursor: pointer;
+  }
+  .chip.t-annual   { background: var(--c-annual-bg);   color: var(--c-annual-tx); }
+  .chip.t-personal { background: var(--c-personal-bg); color: var(--c-personal-tx); }
+  .chip.t-sick     { background: var(--c-sick-bg);     color: var(--c-sick-tx); }
+  .chip.t-official { background: var(--c-official-bg); color: var(--c-official-tx); }
+  .chip.t-funeral  { background: var(--c-funeral-bg);  color: var(--c-funeral-tx); }
+  .chip.t-wedding  { background: var(--c-wedding-bg);  color: var(--c-wedding-tx); }
+  .chip.t-other    { background: var(--c-other-bg);    color: var(--c-other-tx); }
+  .more-tag { font-size: 10.5px; color: var(--text-sub); padding-left: 2px; cursor: pointer; }
+
+  .empty-msg { text-align: center; color: var(--text-sub); padding: 60px 0; font-size: 13.5px; }
+
+  /* Modal */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(40,38,34,0.32);
+    display: none; align-items: center; justify-content: center; padding: 20px;
+    z-index: 50;
+  }
+  .overlay.show { display: flex; }
+  .modal {
+    background: var(--card); border-radius: 16px; padding: 20px;
+    max-width: 360px; width: 100%; max-height: 80vh; overflow-y: auto;
+  }
+  .modal h3 { font-size: 15px; margin-bottom: 12px; }
+  .modal-row {
+    padding: 10px 0; border-top: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .modal-row:first-of-type { border-top: none; }
+  .modal-row .name { font-size: 13.5px; font-weight: 600; }
+  .modal-row .meta { font-size: 12px; color: var(--text-sub); }
+  .modal-close {
+    margin-top: 14px; width: 100%; padding: 10px;
+    border: 1px solid var(--border); background: #f1f0ed; border-radius: 10px;
+    font-size: 13px; color: var(--text); cursor: pointer;
+  }
+
+  @media (max-width: 640px) {
+    .day-cell { min-height: 76px; padding: 4px; }
+    .holiday-name { display: none; }
+    .chip { font-size: 10px; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="header-bar">
+      <h1>請假日曆</h1>
+      <div class="nav">
+        <button id="prevBtn">‹</button>
+        <span class="month-label" id="monthLabel"></span>
+        <button id="nextBtn">›</button>
+        <button class="today-btn" id="todayBtn">今天</button>
+      </div>
+    </div>
+
+    <div class="legend" id="legend"></div>
+
+    <div class="grid" id="weekdayRow"></div>
+    <div class="grid" id="calendarGrid" style="margin-top:6px;"></div>
+  </div>
+
+  <div class="overlay" id="overlay">
+    <div class="modal">
+      <h3 id="modalTitle"></h3>
+      <div id="modalBody"></div>
+      <button class="modal-close" id="modalCloseBtn">關閉</button>
+    </div>
+  </div>
+
+  <script>
+    // ⚠️ 部署後請改成你的 GAS Web App /exec 網址（與 LIFF / 請假總覽共用同一個 GAS 專案）
+    const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwTcFAu7agwai135rI6HdzfZnPRFUJ3Bm1L4WzHfqHcykL1Zw2pu9kVXRkDMQ9SJsJg/exec';
+
+    // 假別 → 樣式類別 / 圖例文字
+    const LEAVE_TYPE_MAP = {
+      '特休': { cls: 't-annual',   label: '特休' },
+      '事假': { cls: 't-personal', label: '事假' },
+      '病假': { cls: 't-sick',     label: '病假' },
+      '公假': { cls: 't-official', label: '公假' },
+      '喪假': { cls: 't-funeral',  label: '喪假' },
+      '婚假': { cls: 't-wedding',  label: '婚假' }
+    };
+    const OTHER_TYPE = { cls: 't-other', label: '其他' };
+
+    // 國定假日（依台灣常見固定假日粗估，農曆節日日期僅供參考，請依實際公告調整）
+    const HOLIDAYS = {
+      '2025-01-01': '元旦', '2025-01-28': '除夕', '2025-01-29': '春節',
+      '2025-01-30': '春節', '2025-01-31': '春節', '2025-02-28': '和平紀念日',
+      '2025-04-03': '兒童節', '2025-04-04': '清明節', '2025-05-31': '端午節',
+      '2025-10-06': '中秋節', '2025-10-10': '國慶日',
+
+      '2026-01-01': '元旦', '2026-02-16': '除夕', '2026-02-17': '春節',
+      '2026-02-18': '春節', '2026-02-19': '春節', '2026-02-28': '和平紀念日',
+      '2026-04-04': '兒童節', '2026-04-05': '清明節', '2026-06-19': '端午節',
+      '2026-09-25': '中秋節', '2026-10-10': '國慶日',
+
+      '2027-01-01': '元旦', '2027-02-05': '除夕', '2027-02-06': '春節',
+      '2027-02-07': '春節', '2027-02-08': '春節', '2027-02-28': '和平紀念日',
+      '2027-04-04': '兒童節', '2027-04-05': '清明節', '2027-06-09': '端午節',
+      '2027-09-15': '中秋節', '2027-10-10': '國慶日'
+    };
+
+    const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
+
+    let viewYear, viewMonth; // viewMonth: 0-11
+    let dayMap = {}; // 'yyyy-MM-dd' -> [records]
+
+    function pad2(n) { return String(n).padStart(2, '0'); }
+    function dateKey(y, m, d) { return `${y}-${pad2(m + 1)}-${pad2(d)}`; }
+
+    function typeStyle(leaveType) {
+      return LEAVE_TYPE_MAP[leaveType] || OTHER_TYPE;
+    }
+
+    function renderLegend() {
+      const items = [...Object.values(LEAVE_TYPE_MAP), OTHER_TYPE];
+      document.getElementById('legend').innerHTML = items.map(t => `
+        <span class="legend-item">
+          <span class="legend-dot chip ${t.cls}" style="width:9px;height:9px;padding:0;"></span>
+          ${t.label}
+        </span>
+      `).join('') + `
+        <span class="legend-item">
+          <span class="legend-dot" style="background:var(--holiday-bg);"></span>
+          國定假日
+        </span>
+      `;
+    }
+
+    function renderWeekdayRow() {
+      document.getElementById('weekdayRow').innerHTML =
+        WEEKDAYS.map(w => `<div class="weekday">${w}</div>`).join('');
+    }
+
+    // 解析 'yyyy/MM/dd HH:mm' 取得純日期 yyyy-MM-dd
+    function toDateOnlyKey(str) {
+      if (!str) return null;
+      const datePart = String(str).split(' ')[0].replace(/-/g, '/');
+      const d = new Date(datePart);
+      if (isNaN(d.getTime())) return null;
+      return dateKey(d.getFullYear(), d.getMonth(), d.getDate());
+    }
+
+    // 將一筆請假紀錄展開到區間內每一天
+    function expandRecordToDays(record) {
+      const start = new Date(String(record.startTime).split(' ')[0].replace(/-/g, '/'));
+      const end   = new Date(String(record.endTime).split(' ')[0].replace(/-/g, '/'));
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) return [];
+
+      const keys = [];
+      const cur = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+      const last = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+      while (cur <= last) {
+        keys.push(dateKey(cur.getFullYear(), cur.getMonth(), cur.getDate()));
+        cur.setDate(cur.getDate() + 1);
+      }
+      return keys;
+    }
+
+    function buildDayMap(records) {
+      const map = {};
+      records.forEach(r => {
+        expandRecordToDays(r).forEach(key => {
+          if (!map[key]) map[key] = [];
+          map[key].push(r);
+        });
+      });
+      return map;
+    }
+
+    function renderCalendar() {
+      const labelEl = document.getElementById('monthLabel');
+      labelEl.textContent = `${viewYear}年 ${viewMonth + 1}月`;
+
+      const firstOfMonth = new Date(viewYear, viewMonth, 1);
+      const startOffset = firstOfMonth.getDay(); // 0=日
+      const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+      const daysInPrevMonth = new Date(viewYear, viewMonth, 0).getDate();
+
+      const todayKey = dateKey(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+
+      const cells = [];
+      // 上個月補齊
+      for (let i = 0; i < startOffset; i++) {
+        const d = daysInPrevMonth - startOffset + 1 + i;
+        const m = viewMonth === 0 ? 11 : viewMonth - 1;
+        const y = viewMonth === 0 ? viewYear - 1 : viewYear;
+        cells.push({ y, m, d, outside: true });
+      }
+      // 本月
+      for (let d = 1; d <= daysInMonth; d++) {
+        cells.push({ y: viewYear, m: viewMonth, d, outside: false });
+      }
+      // 下個月補齊到 42 格（6 週）
+      let nextD = 1;
+      while (cells.length < 42) {
+        const m = viewMonth === 11 ? 0 : viewMonth + 1;
+        const y = viewMonth === 11 ? viewYear + 1 : viewYear;
+        cells.push({ y, m, d: nextD, outside: true });
+        nextD++;
+      }
+
+      document.getElementById('calendarGrid').innerHTML = cells.map(c => {
+        const key = dateKey(c.y, c.m, c.d);
+        const holidayName = HOLIDAYS[key];
+        const records = dayMap[key] || [];
+        const isToday = key === todayKey;
+
+        const MAX_VISIBLE = 3;
+        const visible = records.slice(0, MAX_VISIBLE);
+        const extra = records.length - visible.length;
+
+        const chips = visible.map(r => {
+          const style = typeStyle(r.leaveType);
+          return `<div class="chip ${style.cls}" data-key="${key}">${escapeHtml(r.applicantName)}</div>`;
+        }).join('');
+
+        const moreTag = extra > 0
+          ? `<div class="more-tag" data-key="${key}">+${extra} 人</div>`
+          : '';
+
+        return `
+          <div class="day-cell ${holidayName ? 'holiday' : ''} ${c.outside ? 'outside' : ''} ${isToday ? 'is-today' : ''}" data-key="${key}">
+            <div class="day-num-row">
+              <span class="day-num">${c.d}</span>
+              ${holidayName ? `<span class="holiday-name">${holidayName}</span>` : ''}
+            </div>
+            <div class="chip-list">${chips}${moreTag}</div>
+          </div>
+        `;
+      }).join('');
+
+      document.querySelectorAll('.day-cell, .chip, .more-tag').forEach(el => {
+        el.addEventListener('click', () => openDayModal(el.dataset.key));
+      });
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[c]));
+    }
+
+    function openDayModal(key) {
+      if (!key) return;
+      const records = dayMap[key] || [];
+      const holidayName = HOLIDAYS[key];
+
+      document.getElementById('modalTitle').textContent =
+        `${key}${holidayName ? '（' + holidayName + '）' : ''}`;
+
+      if (records.length === 0) {
+        document.getElementById('modalBody').innerHTML =
+          `<p style="font-size:13px;color:var(--text-sub);">這天沒有人請假</p>`;
+      } else {
+        document.getElementById('modalBody').innerHTML = records.map(r => `
+          <div class="modal-row">
+            <div class="name">${escapeHtml(r.applicantName)} <span style="font-size:11.5px;color:var(--text-sub);">・${escapeHtml(r.department || '')}</span></div>
+            <div class="meta">${escapeHtml(r.leaveType)} ・ ${escapeHtml(r.startTime)} ～ ${escapeHtml(r.endTime)}</div>
+          </div>
+        `).join('');
+      }
+
+      document.getElementById('overlay').classList.add('show');
+    }
+
+    function closeModal() {
+      document.getElementById('overlay').classList.remove('show');
+    }
+
+    function changeMonth(delta) {
+      viewMonth += delta;
+      if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+      if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+      renderCalendar();
+    }
+
+    async function loadData() {
+      try {
+        const res = await fetch(GAS_API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'getApprovedLeaveCalendar' })
+        });
+        const data = await res.json();
+        if (data.success) {
+          dayMap = buildDayMap(data.records || []);
+        } else {
+          console.error(data.error);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+      renderCalendar();
+    }
+
+    function init() {
+      const now = new Date();
+      viewYear = now.getFullYear();
+      viewMonth = now.getMonth();
+
+      renderLegend();
+      renderWeekdayRow();
+
+      document.getElementById('prevBtn').addEventListener('click', () => changeMonth(-1));
+      document.getElementById('nextBtn').addEventListener('click', () => changeMonth(1));
+      document.getElementById('todayBtn').addEventListener('click', () => {
+        const n = new Date();
+        viewYear = n.getFullYear();
+        viewMonth = n.getMonth();
+        renderCalendar();
+      });
+      document.getElementById('overlay').addEventListener('click', (e) => {
+        if (e.target.id === 'overlay') closeModal();
+      });
+      document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
+
+      loadData();
+    }
+
+    init();
+  </script>
+</body>
+</html>
