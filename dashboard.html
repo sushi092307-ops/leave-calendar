@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>請假總覽</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+      background: linear-gradient(160deg, #eef2ff 0%, #f0f4f8 45%, #eafaf1 100%);
+      min-height: 100vh;
+      padding: 20px;
+      color: #1f2937;
+    }
+    .wrap { max-width: 1000px; margin: 0 auto; }
+
+    /* 登入畫面 */
+    .checking { text-align: center; color: #9aa0ad; margin-top: 100px; font-size: 14px; }
+    .login-card {
+      max-width: 380px;
+      margin: 80px auto;
+      background: #fff;
+      border-radius: 20px;
+      box-shadow: 0 8px 30px rgba(31,41,55,0.12);
+      padding: 32px 26px;
+      text-align: center;
+    }
+    .login-card .icon-circle {
+      width: 56px; height: 56px;
+      background: linear-gradient(135deg, #4F46E5, #06C755);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px; color: #fff;
+      margin: 0 auto 14px;
+    }
+    .login-card h2 { font-size: 18px; margin-bottom: 18px; }
+    .form-input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1.5px solid #e2e6ee;
+      border-radius: 12px;
+      font-size: 14px;
+      background: #f9fafc;
+      margin-bottom: 12px;
+    }
+    .form-input:focus { outline: none; border-color: #4F46E5; background: #fff; }
+    .btn {
+      width: 100%;
+      padding: 13px;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      background: linear-gradient(135deg, #4F46E5, #06C755);
+      color: #fff;
+    }
+    .btn:disabled { background: #b9bdc8; cursor: not-allowed; }
+    .error-msg { color: #e53e3e; font-size: 13.5px; margin-top: 10px; }
+
+    /* 總覽畫面 */
+    .header-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 18px;
+    }
+    .header-bar h1 { font-size: 20px; color: #1f2937; }
+    .refresh-btn {
+      background: #fff; border: 1.5px solid #e2e6ee; border-radius: 10px;
+      padding: 8px 14px; font-size: 13px; cursor: pointer; color: #4F46E5; font-weight: 600;
+    }
+
+    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 18px; }
+    .stat-card {
+      background: #fff; border-radius: 14px; padding: 14px;
+      box-shadow: 0 4px 14px rgba(31,41,55,0.06);
+      text-align: center;
+    }
+    .stat-card .num { font-size: 22px; font-weight: 700; }
+    .stat-card .label { font-size: 12px; color: #6b7280; margin-top: 2px; }
+    .stat-card.pending .num { color: #d97706; }
+    .stat-card.approved .num { color: #06C755; }
+    .stat-card.rejected .num { color: #e53e3e; }
+    .stat-card.total .num { color: #4F46E5; }
+
+    .filter-bar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+    .filter-bar select {
+      padding: 9px 12px; border: 1.5px solid #e2e6ee; border-radius: 10px;
+      font-size: 13px; background: #fff; color: #374151;
+    }
+    .filter-bar .date-range {
+      display: flex; align-items: center; gap: 6px;
+    }
+    .filter-bar .date-range input[type="date"] {
+      padding: 8px 10px; border: 1.5px solid #e2e6ee; border-radius: 10px;
+      font-size: 13px; background: #fff; color: #374151;
+    }
+    .filter-bar .to-sep { font-size: 12px; color: #9aa0ad; }
+    .filter-bar .clear-btn {
+      padding: 8px 12px; border: 1.5px solid #e2e6ee; border-radius: 10px;
+      font-size: 12.5px; background: #fff; color: #6b7280; cursor: pointer;
+    }
+
+    .list { display: flex; flex-direction: column; gap: 10px; }
+    .record-card {
+      background: #fff; border-radius: 14px; padding: 16px;
+      box-shadow: 0 4px 14px rgba(31,41,55,0.06);
+    }
+    .record-top {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      margin-bottom: 8px;
+    }
+    .record-top .name { font-size: 15px; font-weight: 700; }
+    .record-top .dept { font-size: 12px; color: #6b7280; margin-top: 2px; }
+    .badge {
+      font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px;
+      white-space: nowrap;
+    }
+    .badge.pending  { background: #fef3c7; color: #b45309; }
+    .badge.approved { background: #dcfce7; color: #15803d; }
+    .badge.rejected { background: #fee2e2; color: #b91c1c; }
+
+    .record-row { font-size: 13px; color: #374151; margin-top: 4px; display: flex; gap: 6px; }
+    .record-row .lbl { color: #9aa0ad; min-width: 56px; flex-shrink: 0; }
+    .record-row a { color: #4F46E5; text-decoration: none; }
+    .rule-hint { font-size: 12px; margin-top: 6px; }
+    .rule-hint.ok { color: #06C755; }
+    .rule-hint.bad { color: #e53e3e; }
+
+    .empty-msg { text-align: center; color: #9aa0ad; padding: 40px 0; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="checking">檢查登入狀態中...</div>
+  </div>
+
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script>
+    // ⚠️ 部署後請改成你的 GAS Web App /exec 網址（與其他 LIFF 頁面共用同一個 GAS 專案）
+    const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwTcFAu7agwai135rI6HdzfZnPRFUJ3Bm1L4WzHfqHcykL1Zw2pu9kVXRkDMQ9SJsJg/exec';
+    // ⚠️ 高層免密碼登入用：在 LINE Developers Console 建立指向本頁的 LIFF App 後填入
+    const DASHBOARD_LIFF_ID = '2010460802-wHLkBr3y';
+
+    let cachedPassword = '';
+    let cachedUserId = '';
+    let allRecords = [];
+
+    // 高層部門透過 LIFF 自動帶入身分，符合條件即免密碼直接進入
+    async function tryAutoLogin() {
+      try {
+        await liff.init({ liffId: DASHBOARD_LIFF_ID });
+        if (!liff.isLoggedIn()) {
+          renderLogin();
+          return;
+        }
+        const profile = await liff.getProfile();
+        const res = await fetch(GAS_API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'getLeaveDashboard', userId: profile.userId })
+        });
+        const data = await res.json();
+        if (data.success) {
+          cachedUserId = profile.userId;
+          allRecords = data.records;
+          renderDashboard();
+        } else {
+          renderLogin();
+        }
+      } catch (err) {
+        renderLogin();
+      }
+    }
+
+    function renderLogin(errorMsg) {
+      document.getElementById('app').innerHTML = `
+        <div class="login-card">
+          <div class="icon-circle">🔒</div>
+          <h2>請假總覽 — 請輸入密碼</h2>
+          <input class="form-input" type="password" id="pwInput" placeholder="請輸入管理密碼" />
+          <button class="btn" id="loginBtn">登入</button>
+          ${errorMsg ? `<p class="error-msg">${errorMsg}</p>` : ''}
+        </div>
+      `;
+      document.getElementById('loginBtn').addEventListener('click', login);
+      document.getElementById('pwInput').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') login();
+      });
+    }
+
+    async function login() {
+      const pw  = document.getElementById('pwInput').value;
+      const btn = document.getElementById('loginBtn');
+      btn.disabled = true;
+      btn.textContent = '登入中...';
+
+      try {
+        const res = await fetch(GAS_API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'getLeaveDashboard', password: pw })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          cachedPassword = pw;
+          allRecords = data.records;
+          renderDashboard();
+        } else {
+          renderLogin(data.error || '登入失敗');
+        }
+      } catch (err) {
+        renderLogin('連線失敗：' + err.message);
+      }
+    }
+
+    function statusClass(status) {
+      if (status === '核准') return 'approved';
+      if (status === '駁回') return 'rejected';
+      return 'pending';
+    }
+
+    function renderDashboard() {
+      const pending  = allRecords.filter(r => r.approveStatus === '待審核').length;
+      const approved = allRecords.filter(r => r.approveStatus === '核准').length;
+      const rejected = allRecords.filter(r => r.approveStatus === '駁回').length;
+
+      const departments = [...new Set(allRecords.map(r => r.department).filter(Boolean))].sort();
+      const deptOptions = departments.map(d => `<option value="${d}">${d}</option>`).join('');
+
+      document.getElementById('app').innerHTML = `
+        <div class="wrap">
+          <div class="header-bar">
+            <h1>📊 請假總覽</h1>
+            <button class="refresh-btn" id="refreshBtn">🔄 重新整理</button>
+          </div>
+
+          <div class="stats-row">
+            <div class="stat-card total"><div class="num">${allRecords.length}</div><div class="label">總申請數</div></div>
+            <div class="stat-card pending"><div class="num">${pending}</div><div class="label">待審核</div></div>
+            <div class="stat-card approved"><div class="num">${approved}</div><div class="label">已核准</div></div>
+            <div class="stat-card rejected"><div class="num">${rejected}</div><div class="label">已駁回</div></div>
+          </div>
+
+          <div class="filter-bar">
+            <select id="deptFilter">
+              <option value="">全部部門</option>
+              ${deptOptions}
+            </select>
+            <select id="statusFilter">
+              <option value="">全部狀態</option>
+              <option value="待審核">待審核</option>
+              <option value="核准">已核准</option>
+              <option value="駁回">已駁回</option>
+            </select>
+            <select id="quickRangeFilter">
+              <option value="">不限期間</option>
+              <option value="today">今天</option>
+              <option value="week">本週</option>
+              <option value="month">本月</option>
+            </select>
+            <span class="date-range">
+              <input type="date" id="startDateFilter" class="form-input" />
+              <span class="to-sep">～</span>
+              <input type="date" id="endDateFilter" class="form-input" />
+            </span>
+            <button class="clear-btn" id="clearDateBtn">清除日期</button>
+          </div>
+
+          <div class="list" id="listWrap"></div>
+        </div>
+      `;
+
+      document.getElementById('refreshBtn').addEventListener('click', async () => {
+        const res = await fetch(GAS_API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'getLeaveDashboard', password: cachedPassword, userId: cachedUserId })
+        });
+        const data = await res.json();
+        if (data.success) { allRecords = data.records; renderDashboard(); }
+      });
+
+      document.getElementById('deptFilter').addEventListener('change', applyFilter);
+      document.getElementById('statusFilter').addEventListener('change', applyFilter);
+      document.getElementById('startDateFilter').addEventListener('change', () => {
+        document.getElementById('quickRangeFilter').value = '';
+        applyFilter();
+      });
+      document.getElementById('endDateFilter').addEventListener('change', () => {
+        document.getElementById('quickRangeFilter').value = '';
+        applyFilter();
+      });
+      document.getElementById('quickRangeFilter').addEventListener('change', (e) => {
+        applyQuickRange(e.target.value);
+      });
+      document.getElementById('clearDateBtn').addEventListener('click', () => {
+        document.getElementById('startDateFilter').value = '';
+        document.getElementById('endDateFilter').value = '';
+        document.getElementById('quickRangeFilter').value = '';
+        applyFilter();
+      });
+
+      applyFilter();
+    }
+
+    function toDateInputValue(d) {
+      const p2 = n => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+    }
+
+    function applyQuickRange(range) {
+      const today = new Date();
+      let start = null, end = null;
+
+      if (range === 'today') {
+        start = new Date(today);
+        end   = new Date(today);
+      } else if (range === 'week') {
+        const dow = today.getDay() === 0 ? 6 : today.getDay() - 1; // 週一為一週開始
+        start = new Date(today); start.setDate(today.getDate() - dow);
+        end   = new Date(start); end.setDate(start.getDate() + 6);
+      } else if (range === 'month') {
+        start = new Date(today.getFullYear(), today.getMonth(), 1);
+        end   = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      }
+
+      document.getElementById('startDateFilter').value = start ? toDateInputValue(start) : '';
+      document.getElementById('endDateFilter').value   = end ? toDateInputValue(end) : '';
+      applyFilter();
+    }
+
+    // 解析「yyyy/MM/dd HH:mm」字串為當天 00:00 的 Date，方便跟日期篩選比較
+    function recordDateOnly(timeStr) {
+      if (!timeStr) return null;
+      const datePart = timeStr.split(' ')[0];
+      const d = new Date(datePart.replace(/-/g, '/'));
+      d.setHours(0, 0, 0, 0);
+      return d;
+    }
+
+    function applyFilter() {
+      const dept      = document.getElementById('deptFilter').value;
+      const status    = document.getElementById('statusFilter').value;
+      const startVal  = document.getElementById('startDateFilter').value;
+      const endVal    = document.getElementById('endDateFilter').value;
+      const rangeStart = startVal ? new Date(startVal.replace(/-/g, '/')) : null;
+      const rangeEnd   = endVal ? new Date(endVal.replace(/-/g, '/')) : null;
+
+      const filtered = allRecords.filter(r => {
+        if (dept && r.department !== dept) return false;
+        if (status && r.approveStatus !== status) return false;
+
+        if (rangeStart || rangeEnd) {
+          const recStart = recordDateOnly(r.startTime);
+          const recEnd   = recordDateOnly(r.endTime) || recStart;
+          if (!recStart) return false;
+          // 只要請假期間與篩選區間有重疊就顯示
+          if (rangeStart && recEnd < rangeStart) return false;
+          if (rangeEnd && recStart > rangeEnd) return false;
+        }
+
+        return true;
+      });
+
+      const listWrap = document.getElementById('listWrap');
+      if (filtered.length === 0) {
+        listWrap.innerHTML = '<p class="empty-msg">沒有符合條件的請假紀錄</p>';
+        return;
+      }
+
+      listWrap.innerHTML = filtered.map(r => {
+        const cls = statusClass(r.approveStatus);
+        const ruleOk = r.ruleStatus && r.ruleStatus.indexOf('符合') !== -1;
+        return `
+          <div class="record-card">
+            <div class="record-top">
+              <div>
+                <div class="name">${r.applicantName}</div>
+                <div class="dept">${r.department} ・ ${r.leaveType}</div>
+              </div>
+              <span class="badge ${cls}">${r.approveStatus}</span>
+            </div>
+            <div class="record-row"><span class="lbl">時間</span>${r.startTime} ～ ${r.endTime}（${r.hours} 小時）</div>
+            <div class="record-row"><span class="lbl">事由</span>${r.reason || '（未填寫）'}</div>
+            ${r.proofUrl ? `<div class="record-row"><span class="lbl">證明</span><a href="${r.proofUrl}" target="_blank">查看附件</a></div>` : ''}
+            <div class="record-row"><span class="lbl">申請時間</span>${r.appliedAt}</div>
+            ${r.approvedAt ? `<div class="record-row"><span class="lbl">簽核時間</span>${r.approvedAt}</div>` : ''}
+            <div class="rule-hint ${ruleOk ? 'ok' : 'bad'}">${r.ruleStatus || ''}${r.ruleReason ? '：' + r.ruleReason : ''}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    tryAutoLogin();
+  </script>
+</body>
+</html>

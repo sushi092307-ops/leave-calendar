@@ -149,6 +149,7 @@
         <span class="month-label" id="monthLabel"></span>
         <button id="nextBtn">›</button>
         <button class="today-btn" id="todayBtn">今天</button>
+        <button class="today-btn" id="dashboardBtn">📊 請假總覽</button>
       </div>
     </div>
 
@@ -414,6 +415,9 @@
         if (e.target.id === 'overlay') closeModal();
       });
       document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
+      document.getElementById('dashboardBtn').addEventListener('click', () => {
+        location.href = 'dashboard.html';
+      });
 
       loadData();
     }
