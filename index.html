@@ -416,7 +416,9 @@
       });
       document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
       document.getElementById('dashboardBtn').addEventListener('click', () => {
-        location.href = 'dashboard.html';
+        // 透過 LIFF 入口網址開啟，讓高層部門可被自動辨識免密碼登入；
+        // 非 LINE 環境開啟 liff.line.me 連結會直接轉址到一般網址，密碼登入照常可用
+        location.href = 'https://liff.line.me/2010460802-wHLkBr3y';
       });
 
       loadData();
