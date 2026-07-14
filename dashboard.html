@@ -127,6 +127,43 @@
     .rule-hint.ok { color: #06C755; }
     .rule-hint.bad { color: #e53e3e; }
 
+    .erp-btn {
+      margin-top: 10px;
+      width: 100%;
+      padding: 9px;
+      border: none;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      background: #eef2ff;
+      color: #4F46E5;
+    }
+    .erp-btn:hover { background: #e0e7ff; }
+    .erp-btn.done {
+      background: #f1f3f7;
+      color: #9aa0ad;
+      cursor: default;
+    }
+    .erp-btn:disabled { cursor: not-allowed; }
+
+    .export-bar {
+      display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+      margin-bottom: 16px; padding: 12px 14px;
+      background: #fff; border-radius: 12px; box-shadow: 0 4px 14px rgba(31,41,55,0.06);
+    }
+    .export-bar select {
+      padding: 9px 12px; border: 1.5px solid #e2e6ee; border-radius: 10px;
+      font-size: 13px; background: #f9fafc; color: #374151;
+    }
+    .export-bar .export-btn {
+      padding: 9px 16px; border: none; border-radius: 10px;
+      font-size: 13px; font-weight: 700; cursor: pointer;
+      background: linear-gradient(135deg, #4F46E5, #06C755); color: #fff;
+    }
+    .export-bar .export-btn:disabled { background: #b9bdc8; cursor: not-allowed; }
+    .export-bar .export-label { font-size: 13px; color: #6b7280; font-weight: 600; }
+
     .empty-msg { text-align: center; color: #9aa0ad; padding: 40px 0; }
   </style>
 </head>
@@ -145,6 +182,22 @@
     let cachedPassword = '';
     let cachedUserId = '';
     let allRecords = [];
+
+    // ── 動態載入 SheetJS，供匯出 XLS 用（比照 liff_announcement.html 的做法）──
+    let xlsxReady = false;
+    (function loadSheetJS() {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+      s.onload  = function() { xlsxReady = true; };
+      s.onerror = function() {
+        const s2 = document.createElement('script');
+        s2.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+        s2.onload  = function() { xlsxReady = true; };
+        s2.onerror = function() { xlsxReady = false; };
+        document.head.appendChild(s2);
+      };
+      document.head.appendChild(s);
+    })();
 
     // 高層部門透過 LIFF 自動帶入身分，符合條件即免密碼直接進入
     async function tryAutoLogin() {
@@ -268,9 +321,18 @@
             <button class="clear-btn" id="clearDateBtn">清除日期</button>
           </div>
 
+          <div class="export-bar">
+            <span class="export-label">📥 匯出已核准名單</span>
+            <select id="exportYear">${buildYearOptions()}</select>
+            <select id="exportMonth">${buildMonthOptions()}</select>
+            <button class="export-btn" id="exportBtn">下載 XLS</button>
+          </div>
+
           <div class="list" id="listWrap"></div>
         </div>
       `;
+
+      document.getElementById('exportBtn').addEventListener('click', exportApprovedXlsx);
 
       document.getElementById('refreshBtn').addEventListener('click', async () => {
         const res = await fetch(GAS_API_URL, {
@@ -388,9 +450,96 @@
             <div class="record-row"><span class="lbl">申請時間</span>${r.appliedAt}</div>
             ${r.approvedAt ? `<div class="record-row"><span class="lbl">簽核時間</span>${r.approvedAt}</div>` : ''}
             <div class="rule-hint ${ruleOk ? 'ok' : 'bad'}">${r.ruleStatus || ''}${r.ruleReason ? '：' + r.ruleReason : ''}</div>
+            ${r.approveStatus === '核准' ? `
+              <button class="erp-btn ${r.erpEntered ? 'done' : ''}" data-leave-id="${r.leaveId}" ${r.erpEntered ? 'disabled' : ''}>
+                ${r.erpEntered ? '✅ 已入ERP系統' : '📥 入ERP系統'}
+              </button>
+            ` : ''}
           </div>
         `;
       }).join('');
+
+      listWrap.querySelectorAll('.erp-btn:not(.done)').forEach(btn => {
+        btn.addEventListener('click', () => markErpEntered(btn.dataset.leaveId, btn));
+      });
+    }
+
+    // 樂觀更新：GAS 呼叫較慢，先讓按鈕立刻變灰顯示完成，背景才送出；失敗才回滾
+    async function markErpEntered(leaveId, btn) {
+      btn.disabled = true;
+      btn.classList.add('done');
+      btn.textContent = '✅ 已入ERP系統';
+
+      try {
+        const res = await fetch(GAS_API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'markLeaveErpEntered', password: cachedPassword, userId: cachedUserId, leaveId })
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || '未知錯誤');
+        const rec = allRecords.find(r => r.leaveId === leaveId);
+        if (rec) rec.erpEntered = true;
+      } catch (err) {
+        btn.disabled = false;
+        btn.classList.remove('done');
+        btn.textContent = '📥 入ERP系統';
+        alert('標記失敗，請重試：' + err.message);
+      }
+    }
+
+    function buildYearOptions() {
+      const nowYear = new Date().getFullYear();
+      let opts = '';
+      for (let y = nowYear; y >= nowYear - 4; y--) {
+        opts += `<option value="${y}">${y}年</option>`;
+      }
+      return opts;
+    }
+    function buildMonthOptions() {
+      let opts = '<option value="">全年</option>';
+      for (let m = 1; m <= 12; m++) {
+        opts += `<option value="${m}">${m}月</option>`;
+      }
+      return opts;
+    }
+
+    // 依選定年／月匯出「已核准」名單為 XLS，只匯出核准的紀錄
+    function exportApprovedXlsx() {
+      if (!xlsxReady) { alert('匯出元件載入中，請稍候再試一次'); return; }
+
+      const year  = parseInt(document.getElementById('exportYear').value, 10);
+      const month = document.getElementById('exportMonth').value ? parseInt(document.getElementById('exportMonth').value, 10) : null;
+
+      const rows = allRecords
+        .filter(r => r.approveStatus === '核准')
+        .filter(r => {
+          const d = recordDateOnly(r.startTime);
+          if (!d) return false;
+          if (d.getFullYear() !== year) return false;
+          if (month !== null && d.getMonth() + 1 !== month) return false;
+          return true;
+        })
+        .map(r => ({
+          姓名: r.applicantName,
+          部門: r.department,
+          假別: r.leaveType,
+          起始時間: r.startTime,
+          結束時間: r.endTime,
+          時數: r.hours,
+          事由: r.reason || '',
+          申請時間: r.appliedAt,
+          簽核時間: r.approvedAt || '',
+          已入ERP: r.erpEntered ? '是' : '否'
+        }));
+
+      if (rows.length === 0) { alert('該年月沒有已核准的請假紀錄'); return; }
+
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, '已核准請假名單');
+      const label = month ? `${year}年${month}月` : `${year}年`;
+      XLSX.writeFile(wb, `請假總覽_${label}_已核准.xlsx`);
     }
 
     tryAutoLogin();
