@@ -19,7 +19,7 @@
     --c-sick-bg:    #e8d5d5; --c-sick-tx:    #8a4a4a; /* 病假 */
     --c-official-bg:#d7dfe8; --c-official-tx:#44607d; /* 公假 */
     --c-funeral-bg: #ddd9e1; --c-funeral-tx: #5e5468; /* 喪假 */
-    --c-wedding-bg: #ece0c9; --c-wedding-tx: #8a6a30; /* 婚假 */
+    --c-family-bg:  #e6dde3; --c-family-tx:  #7d5468; /* 家庭照顧假 */
     --c-other-bg:   #e2e2de; --c-other-tx:   #5c5c58; /* 其他 */
   }
 
@@ -102,7 +102,7 @@
   .chip.t-sick     { background: var(--c-sick-bg);     color: var(--c-sick-tx); }
   .chip.t-official { background: var(--c-official-bg); color: var(--c-official-tx); }
   .chip.t-funeral  { background: var(--c-funeral-bg);  color: var(--c-funeral-tx); }
-  .chip.t-wedding  { background: var(--c-wedding-bg);  color: var(--c-wedding-tx); }
+  .chip.t-family   { background: var(--c-family-bg);   color: var(--c-family-tx); }
   .chip.t-other    { background: var(--c-other-bg);    color: var(--c-other-tx); }
   .more-tag { font-size: 10.5px; color: var(--text-sub); padding-left: 2px; cursor: pointer; }
 
@@ -178,7 +178,7 @@
       '病假': { cls: 't-sick',     label: '病假' },
       '公假': { cls: 't-official', label: '公假' },
       '喪假': { cls: 't-funeral',  label: '喪假' },
-      '婚假': { cls: 't-wedding',  label: '婚假' }
+      '家庭照顧假': { cls: 't-family', label: '家庭照顧假' }
     };
     const OTHER_TYPE = { cls: 't-other', label: '其他' };
 
