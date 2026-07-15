@@ -445,6 +445,7 @@
               <span class="badge ${cls}">${r.approveStatus}</span>
             </div>
             <div class="record-row"><span class="lbl">時間</span>${r.startTime} ～ ${r.endTime}（${r.hours} 小時）</div>
+            <div class="record-row"><span class="lbl">代理人</span>${r.agentName || '（未填寫）'}</div>
             <div class="record-row"><span class="lbl">事由</span>${r.reason || '（未填寫）'}</div>
             ${r.proofUrl ? `<div class="record-row"><span class="lbl">證明</span><a href="${r.proofUrl}" target="_blank">查看附件</a></div>` : ''}
             <div class="record-row"><span class="lbl">申請時間</span>${r.appliedAt}</div>
@@ -527,6 +528,7 @@
           起始時間: r.startTime,
           結束時間: r.endTime,
           時數: r.hours,
+          代理人: r.agentName || '',
           事由: r.reason || '',
           申請時間: r.appliedAt,
           簽核時間: r.approvedAt || '',
