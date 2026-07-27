@@ -111,7 +111,9 @@
       margin-bottom: 8px;
     }
     .record-top .name { font-size: 15px; font-weight: 700; }
+    .record-top .name .leave-type { font-size: 15px; font-weight: 700; margin-left: 6px; }
     .record-top .dept { font-size: 12px; color: #6b7280; margin-top: 2px; }
+    .record-row .time-red { color: #dc2626; font-weight: 600; }
     .badge {
       font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px;
       white-space: nowrap;
@@ -439,12 +441,12 @@
           <div class="record-card">
             <div class="record-top">
               <div>
-                <div class="name">${r.applicantName}</div>
-                <div class="dept">${r.department} ・ ${r.leaveType}</div>
+                <div class="name">${r.applicantName}<span class="leave-type">${r.leaveType}</span></div>
+                <div class="dept">${r.department}</div>
               </div>
               <span class="badge ${cls}">${r.approveStatus}</span>
             </div>
-            <div class="record-row"><span class="lbl">時間</span>${r.startTime} ～ ${r.endTime}（${r.hours} 小時）</div>
+            <div class="record-row"><span class="lbl">時間</span><span class="time-red">${r.startTime} ～ ${r.endTime}（${r.hours} 小時）</span></div>
             <div class="record-row"><span class="lbl">代理人</span>${r.agentName || '（未填寫）'}</div>
             <div class="record-row"><span class="lbl">事由</span>${r.reason || '（未填寫）'}</div>
             ${r.proofUrl ? `<div class="record-row"><span class="lbl">證明</span><a href="${r.proofUrl}" target="_blank">查看附件</a></div>` : ''}
