@@ -13,15 +13,8 @@
     --text-sub:  #908d86;
     --holiday-bg:#e7e6e3;
 
-    /* 假別配色：低飽和、柔和、各色彩度/明度一致 */
-    --c-annual-bg:  #dbe6e1; --c-annual-tx:  #3f6b5c; /* 特休 */
-    --c-personal-bg:#e9ddcf; --c-personal-tx:#7a5c3e; /* 事假 */
-    --c-sick-bg:    #e8d5d5; --c-sick-tx:    #8a4a4a; /* 病假 */
-    --c-official-bg:#d7dfe8; --c-official-tx:#44607d; /* 公假 */
-    --c-funeral-bg: #ddd9e1; --c-funeral-tx: #5e5468; /* 喪假 */
-    --c-family-bg:  #e6dde3; --c-family-tx:  #7d5468; /* 家庭照顧假 */
-    --c-marriage-bg:#f0dcd6; --c-marriage-tx:#9a5545; /* 婚假 */
-    --c-other-bg:   #e2e2de; --c-other-tx:   #5c5c58; /* 其他 */
+    /* 請假標記：統一綠底 */
+    --c-leave-bg:   #dbe6e1; --c-leave-tx:   #3f6b5c;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -98,14 +91,7 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     cursor: pointer;
   }
-  .chip.t-annual   { background: var(--c-annual-bg);   color: var(--c-annual-tx); }
-  .chip.t-personal { background: var(--c-personal-bg); color: var(--c-personal-tx); }
-  .chip.t-sick     { background: var(--c-sick-bg);     color: var(--c-sick-tx); }
-  .chip.t-official { background: var(--c-official-bg); color: var(--c-official-tx); }
-  .chip.t-funeral  { background: var(--c-funeral-bg);  color: var(--c-funeral-tx); }
-  .chip.t-family   { background: var(--c-family-bg);   color: var(--c-family-tx); }
-  .chip.t-marriage { background: var(--c-marriage-bg); color: var(--c-marriage-tx); }
-  .chip.t-other    { background: var(--c-other-bg);    color: var(--c-other-tx); }
+  .chip.t-leave    { background: var(--c-leave-bg);    color: var(--c-leave-tx); }
   .more-tag { font-size: 10.5px; color: var(--text-sub); padding-left: 2px; cursor: pointer; }
 
   .empty-msg { text-align: center; color: var(--text-sub); padding: 60px 0; font-size: 13.5px; }
@@ -173,18 +159,6 @@
     // ⚠️ 部署後請改成你的 GAS Web App /exec 網址（與 LIFF / 請假總覽共用同一個 GAS 專案）
     const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwTcFAu7agwai135rI6HdzfZnPRFUJ3Bm1L4WzHfqHcykL1Zw2pu9kVXRkDMQ9SJsJg/exec';
 
-    // 假別 → 樣式類別 / 圖例文字
-    const LEAVE_TYPE_MAP = {
-      '特休': { cls: 't-annual',   label: '特休' },
-      '事假': { cls: 't-personal', label: '事假' },
-      '病假': { cls: 't-sick',     label: '病假' },
-      '公假': { cls: 't-official', label: '公假' },
-      '喪假': { cls: 't-funeral',  label: '喪假' },
-      '家庭照顧假': { cls: 't-family', label: '家庭照顧假' },
-      '婚假': { cls: 't-marriage', label: '婚假' }
-    };
-    const OTHER_TYPE = { cls: 't-other', label: '其他' };
-
     // 國定假日（依台灣常見固定假日粗估，農曆節日日期僅供參考，請依實際公告調整）
     const HOLIDAYS = {
       '2025-01-01': '元旦', '2025-01-28': '除夕', '2025-01-29': '春節',
@@ -211,18 +185,12 @@
     function pad2(n) { return String(n).padStart(2, '0'); }
     function dateKey(y, m, d) { return `${y}-${pad2(m + 1)}-${pad2(d)}`; }
 
-    function typeStyle(leaveType) {
-      return LEAVE_TYPE_MAP[leaveType] || OTHER_TYPE;
-    }
-
     function renderLegend() {
-      const items = [...Object.values(LEAVE_TYPE_MAP), OTHER_TYPE];
-      document.getElementById('legend').innerHTML = items.map(t => `
+      document.getElementById('legend').innerHTML = `
         <span class="legend-item">
-          <span class="legend-dot chip ${t.cls}" style="width:9px;height:9px;padding:0;"></span>
-          ${t.label}
+          <span class="legend-dot chip t-leave" style="width:9px;height:9px;padding:0;"></span>
+          請假
         </span>
-      `).join('') + `
         <span class="legend-item">
           <span class="legend-dot" style="background:var(--holiday-bg);"></span>
           國定假日
@@ -315,8 +283,7 @@
         const extra = records.length - visible.length;
 
         const chips = visible.map(r => {
-          const style = typeStyle(r.leaveType);
-          return `<div class="chip ${style.cls}" data-key="${key}">${escapeHtml(r.applicantName)}</div>`;
+          return `<div class="chip t-leave" data-key="${key}">${escapeHtml(r.applicantName)}</div>`;
         }).join('');
 
         const moreTag = extra > 0
@@ -360,7 +327,7 @@
         document.getElementById('modalBody').innerHTML = records.map(r => `
           <div class="modal-row">
             <div class="name">${escapeHtml(r.applicantName)} <span style="font-size:11.5px;color:var(--text-sub);">・${escapeHtml(r.department || '')}</span></div>
-            <div class="meta">${escapeHtml(r.leaveType)} ・ ${escapeHtml(r.startTime)} ～ ${escapeHtml(r.endTime)}</div>
+            <div class="meta">${escapeHtml(r.startTime)} ～ ${escapeHtml(r.endTime)}</div>
           </div>
         `).join('');
       }
