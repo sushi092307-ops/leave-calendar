@@ -13,8 +13,11 @@
     --text-sub:  #908d86;
     --holiday-bg:#e7e6e3;
 
-    /* 請假標記：統一綠底 */
-    --c-leave-bg:   #dbe6e1; --c-leave-tx:   #3f6b5c;
+    /* 請假標記：依「當天請假時數」分四階綠色，時數越多越深（不顯示假別） */
+    --c-lv1-bg: #e4f1e9; --c-lv1-tx: #4f7a6b; /* 2 小時以下 */
+    --c-lv2-bg: #c4dfd0; --c-lv2-tx: #3a6656; /* 2～4 小時 */
+    --c-lv3-bg: #9fc7b4; --c-lv3-tx: #21473a; /* 4～6 小時 */
+    --c-lv4-bg: #4f8f77; --c-lv4-tx: #ffffff; /* 6～8 小時（整天） */
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -91,7 +94,11 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     cursor: pointer;
   }
-  .chip.t-leave    { background: var(--c-leave-bg);    color: var(--c-leave-tx); }
+  .chip.lv1 { background: var(--c-lv1-bg); color: var(--c-lv1-tx); box-shadow: inset 0 0 0 1px #c9e1d3; }
+  .chip.lv2 { background: var(--c-lv2-bg); color: var(--c-lv2-tx); }
+  .chip.lv3 { background: var(--c-lv3-bg); color: var(--c-lv3-tx); }
+  .chip.lv4 { background: var(--c-lv4-bg); color: var(--c-lv4-tx); }
+  .chip .hrs { opacity: 0.85; margin-left: 3px; font-variant-numeric: tabular-nums; }
   .more-tag { font-size: 10.5px; color: var(--text-sub); padding-left: 2px; cursor: pointer; }
 
   .empty-msg { text-align: center; color: var(--text-sub); padding: 60px 0; font-size: 13.5px; }
@@ -180,17 +187,32 @@
     const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
 
     let viewYear, viewMonth; // viewMonth: 0-11
-    let dayMap = {}; // 'yyyy-MM-dd' -> [records]
+    let dayMap = {}; // 'yyyy-MM-dd' -> [{ record, hours }]
 
     function pad2(n) { return String(n).padStart(2, '0'); }
     function dateKey(y, m, d) { return `${y}-${pad2(m + 1)}-${pad2(d)}`; }
 
+    // 當天請假時數 → 顏色深淺（上限含在該階內，例如剛好 2 小時屬於第一階）
+    const HOUR_LEVELS = [
+      { max: 2,        cls: 'lv1', label: '2 小時以下' },
+      { max: 4,        cls: 'lv2', label: '2～4 小時' },
+      { max: 6,        cls: 'lv3', label: '4～6 小時' },
+      { max: Infinity, cls: 'lv4', label: '6～8 小時' }
+    ];
+    function hourLevelClass(h) {
+      return HOUR_LEVELS.find(l => h <= l.max + 0.001).cls;
+    }
+    function formatHours(h) {
+      return `${Math.round(h * 10) / 10}h`;
+    }
+
     function renderLegend() {
       document.getElementById('legend').innerHTML = `
+        ${HOUR_LEVELS.map(l => `
         <span class="legend-item">
-          <span class="legend-dot chip t-leave" style="width:9px;height:9px;padding:0;"></span>
-          請假
-        </span>
+          <span class="legend-dot chip ${l.cls}" style="width:9px;height:9px;padding:0;"></span>
+          ${l.label}
+        </span>`).join('')}
         <span class="legend-item">
           <span class="legend-dot" style="background:var(--holiday-bg);"></span>
           國定假日
@@ -203,37 +225,72 @@
         WEEKDAYS.map(w => `<div class="weekday">${w}</div>`).join('');
     }
 
-    // 解析 'yyyy/MM/dd HH:mm' 取得純日期 yyyy-MM-dd
-    function toDateOnlyKey(str) {
+    // 解析 'yyyy/MM/dd HH:mm'；沒有時間的話用 fallbackHour（開始 08:00、結束 17:00）
+    function parseDateTime(str, fallbackHour) {
       if (!str) return null;
-      const datePart = String(str).split(' ')[0].replace(/-/g, '/');
-      const d = new Date(datePart);
+      const [datePart, timePart] = String(str).trim().split(/\s+/);
+      const d = new Date(datePart.replace(/-/g, '/'));
       if (isNaN(d.getTime())) return null;
-      return dateKey(d.getFullYear(), d.getMonth(), d.getDate());
-    }
-
-    // 將一筆請假紀錄展開到區間內每一天
-    function expandRecordToDays(record) {
-      const start = new Date(String(record.startTime).split(' ')[0].replace(/-/g, '/'));
-      const end   = new Date(String(record.endTime).split(' ')[0].replace(/-/g, '/'));
-      if (isNaN(start.getTime()) || isNaN(end.getTime())) return [];
-
-      const keys = [];
-      const cur = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-      const last = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-      while (cur <= last) {
-        keys.push(dateKey(cur.getFullYear(), cur.getMonth(), cur.getDate()));
-        cur.setDate(cur.getDate() + 1);
+      let hh = fallbackHour, mm = 0;
+      if (timePart && /^\d{1,2}:\d{2}/.test(timePart)) {
+        [hh, mm] = timePart.split(':').map(Number);
       }
-      return keys;
+      d.setHours(hh, mm, 0, 0);
+      return d;
     }
 
+    // 將一筆請假紀錄拆成「每一天請幾小時」：規則與後端 computeLeaveHours 相同
+    // 只算 08:00-17:00、扣 12:00-13:00 午休、週六日不算；最後一天 17:00~17:10 是下班緩衝，視為到 17:00
+    // 回傳 [{ key: 'yyyy-MM-dd', hours }]，只列出時數大於 0 的日子
+    function splitRecordHoursByDay(record) {
+      const startTime = parseDateTime(record.startTime, 8);
+      const endTime   = parseDateTime(record.endTime, 17);
+      if (!startTime || !endTime || endTime <= startTime) return [];
+
+      const result = [];
+      let cursor = new Date(startTime);
+      while (cursor < endTime) {
+        const y = cursor.getFullYear(), m = cursor.getMonth(), d = cursor.getDate();
+        const nextDay = new Date(y, m, d + 1);
+        const dow = new Date(y, m, d).getDay();
+
+        if (dow !== 0 && dow !== 6) {
+          const workStart     = new Date(y, m, d, 8, 0, 0);
+          const workEndCalc   = new Date(y, m, d, 17, 0, 0);
+          const workEndBuffer = new Date(y, m, d, 17, 10, 0);
+
+          const segStart = cursor > workStart ? cursor : workStart;
+          const isLastDay = endTime < nextDay;
+          let segEnd;
+          if (isLastDay) {
+            segEnd = (endTime > workEndCalc && endTime <= workEndBuffer) ? workEndCalc : endTime;
+          } else {
+            segEnd = workEndCalc;
+          }
+
+          if (segEnd > segStart) {
+            let ms = segEnd - segStart;
+            const lunchStart = new Date(y, m, d, 12, 0, 0);
+            const lunchEnd   = new Date(y, m, d, 13, 0, 0);
+            const oStart = segStart > lunchStart ? segStart : lunchStart;
+            const oEnd   = segEnd   < lunchEnd   ? segEnd   : lunchEnd;
+            if (oEnd > oStart) ms -= (oEnd - oStart);
+            const hours = ms / 3600000;
+            if (hours > 0) result.push({ key: dateKey(y, m, d), hours });
+          }
+        }
+        cursor = nextDay;
+      }
+      return result;
+    }
+
+    // dayMap: 'yyyy-MM-dd' -> [{ record, hours }]
     function buildDayMap(records) {
       const map = {};
       records.forEach(r => {
-        expandRecordToDays(r).forEach(key => {
+        splitRecordHoursByDay(r).forEach(({ key, hours }) => {
           if (!map[key]) map[key] = [];
-          map[key].push(r);
+          map[key].push({ record: r, hours });
         });
       });
       return map;
@@ -282,8 +339,8 @@
         const visible = records.slice(0, MAX_VISIBLE);
         const extra = records.length - visible.length;
 
-        const chips = visible.map(r => {
-          return `<div class="chip t-leave" data-key="${key}">${escapeHtml(r.applicantName)}</div>`;
+        const chips = visible.map(({ record: r, hours }) => {
+          return `<div class="chip ${hourLevelClass(hours)}" data-key="${key}">${escapeHtml(r.applicantName)}<span class="hrs">${formatHours(hours)}</span></div>`;
         }).join('');
 
         const moreTag = extra > 0
@@ -324,9 +381,10 @@
         document.getElementById('modalBody').innerHTML =
           `<p style="font-size:13px;color:var(--text-sub);">這天沒有人請假</p>`;
       } else {
-        document.getElementById('modalBody').innerHTML = records.map(r => `
+        document.getElementById('modalBody').innerHTML = records.map(({ record: r, hours }) => `
           <div class="modal-row">
-            <div class="name">${escapeHtml(r.applicantName)} <span style="font-size:11.5px;color:var(--text-sub);">・${escapeHtml(r.department || '')}</span></div>
+            <div class="name">${escapeHtml(r.applicantName)} <span style="font-size:11.5px;color:var(--text-sub);">・${escapeHtml(r.department || '')}</span>
+              <span class="chip ${hourLevelClass(hours)}" style="display:inline-block;cursor:default;margin-left:4px;">當天 ${formatHours(hours)}</span></div>
             <div class="meta">${escapeHtml(r.startTime)} ～ ${escapeHtml(r.endTime)}</div>
           </div>
         `).join('');
