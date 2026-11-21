@@ -98,7 +98,6 @@
   .chip.lv2 { background: var(--c-lv2-bg); color: var(--c-lv2-tx); }
   .chip.lv3 { background: var(--c-lv3-bg); color: var(--c-lv3-tx); }
   .chip.lv4 { background: var(--c-lv4-bg); color: var(--c-lv4-tx); }
-  .chip .hrs { opacity: 0.85; margin-left: 3px; font-variant-numeric: tabular-nums; }
   .more-tag { font-size: 10.5px; color: var(--text-sub); padding-left: 2px; cursor: pointer; }
 
   .empty-msg { text-align: center; color: var(--text-sub); padding: 60px 0; font-size: 13.5px; }
@@ -340,7 +339,7 @@
         const extra = records.length - visible.length;
 
         const chips = visible.map(({ record: r, hours }) => {
-          return `<div class="chip ${hourLevelClass(hours)}" data-key="${key}">${escapeHtml(r.applicantName)}<span class="hrs">${formatHours(hours)}</span></div>`;
+          return `<div class="chip ${hourLevelClass(hours)}" data-key="${key}">${escapeHtml(r.applicantName)}</div>`;
         }).join('');
 
         const moreTag = extra > 0
