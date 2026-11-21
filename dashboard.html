@@ -114,6 +114,25 @@
     .record-top .name .leave-type { font-size: 15px; font-weight: 700; margin-left: 6px; }
     .record-top .dept { font-size: 12px; color: #6b7280; margin-top: 2px; }
     .record-row .time-red { color: #dc2626; font-weight: 600; }
+
+    /* 依請假時數分四階綠色（與請假日曆同色階），時數越多越深 */
+    .record-card.lv1 { border-left: 5px solid #c9e1d3; }
+    .record-card.lv2 { border-left: 5px solid #a8cfba; }
+    .record-card.lv3 { border-left: 5px solid #7fb39b; }
+    .record-card.lv4 { border-left: 5px solid #4f8f77; }
+    .hrs-chip {
+      display: inline-block; font-size: 12px; font-weight: 600;
+      padding: 1px 8px; border-radius: 999px; margin-left: 6px; white-space: nowrap;
+    }
+    .hrs-chip.lv1 { background: #e4f1e9; color: #4f7a6b; box-shadow: inset 0 0 0 1px #c9e1d3; }
+    .hrs-chip.lv2 { background: #c4dfd0; color: #3a6656; }
+    .hrs-chip.lv3 { background: #9fc7b4; color: #21473a; }
+    .hrs-chip.lv4 { background: #4f8f77; color: #ffffff; }
+    .hours-legend {
+      display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center;
+      font-size: 12.5px; color: #6b7280; margin: 4px 2px 10px;
+    }
+    .hours-legend .hrs-chip { margin-left: 0; margin-right: 4px; width: 14px; height: 10px; padding: 0; vertical-align: middle; }
     .badge {
       font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px;
       white-space: nowrap;
@@ -276,6 +295,18 @@
       return 'pending';
     }
 
+    // 請假總時數 → 顏色深淺（與請假日曆同四階；跨天的假超過 6 小時都歸最深一階）
+    const HOUR_LEVELS = [
+      { max: 2,        cls: 'lv1', label: '2 小時以下' },
+      { max: 4,        cls: 'lv2', label: '2～4 小時' },
+      { max: 6,        cls: 'lv3', label: '4～6 小時' },
+      { max: Infinity, cls: 'lv4', label: '6 小時以上（含多天）' }
+    ];
+    function hourLevelClass(h) {
+      const n = Number(h) || 0;
+      return HOUR_LEVELS.find(l => n <= l.max + 0.001).cls;
+    }
+
     function renderDashboard() {
       const pending  = allRecords.filter(r => r.approveStatus === '待審核').length;
       const approved = allRecords.filter(r => r.approveStatus === '核准').length;
@@ -328,6 +359,11 @@
             <select id="exportYear">${buildYearOptions()}</select>
             <select id="exportMonth">${buildMonthOptions()}</select>
             <button class="export-btn" id="exportBtn">下載 XLS</button>
+          </div>
+
+          <div class="hours-legend">
+            <span>請假時數：</span>
+            ${HOUR_LEVELS.map(l => `<span><span class="hrs-chip ${l.cls}"></span>${l.label}</span>`).join('')}
           </div>
 
           <div class="list" id="listWrap"></div>
@@ -438,7 +474,7 @@
         const cls = statusClass(r.approveStatus);
         const ruleOk = r.ruleStatus && r.ruleStatus.indexOf('符合') !== -1;
         return `
-          <div class="record-card">
+          <div class="record-card ${hourLevelClass(r.hours)}">
             <div class="record-top">
               <div>
                 <div class="name">${r.applicantName}<span class="leave-type">${r.leaveType}</span></div>
@@ -446,7 +482,7 @@
               </div>
               <span class="badge ${cls}">${r.approveStatus}</span>
             </div>
-            <div class="record-row"><span class="lbl">時間</span><span class="time-red">${r.startTime} ～ ${r.endTime}（${r.hours} 小時）</span></div>
+            <div class="record-row"><span class="lbl">時間</span><span><span class="time-red">${r.startTime} ～ ${r.endTime}</span><span class="hrs-chip ${hourLevelClass(r.hours)}">${r.hours} 小時</span></span></div>
             <div class="record-row"><span class="lbl">代理人</span>${r.agentName || '（未填寫）'}</div>
             <div class="record-row"><span class="lbl">事由</span>${r.reason || '（未填寫）'}</div>
             ${r.proofUrl ? `<div class="record-row"><span class="lbl">證明</span><a href="${r.proofUrl}" target="_blank">查看附件</a></div>` : ''}
